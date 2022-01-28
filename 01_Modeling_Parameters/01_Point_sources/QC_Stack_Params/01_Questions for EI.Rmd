@@ -1,0 +1,271 @@
+---
+title: "CEDR modeling parameters"
+output: 
+  html_document:
+    theme: lumen
+---
+
+
+![](https://images.fastcompany.net/image/upload/w_937,ar_16:9,c_fill,g_auto,f_auto,q_auto,fl_lossy/fc/1280-generating-power-from-smokestacks.jpg){width="72%"}
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
+library(tidyverse)
+library(knitr)
+library(DT)
+
+setwd("X:/Agency_Files/Outcomes/Risk_Eval_Air_Mod/_Air_Risk_Evaluation/MNRISKS/2014 MNRISKS/2014_mnrisks_development/1. Modeling parameters/1. Point sources/qc_stack_params")
+
+dt_options = list(dom = '<"pull-right" B> frtip', scrollX = T, autoWidth = F, searching = F, ordering=T, lengthChange = F, pageLength = 6, buttons = list(list(extend = 'collection', buttons = c('excel', 'csv', 'pdf'), text = 'Download')))
+
+# Table shading
+## Colors: #cbfffd, #e9e9e9, #FFF, #DodgerBlue
+
+```
+
+<style>
+  body {margin-left: 0px;}
+  p {font-size: 17px;}
+  .main-container {max-width: 1350px;}
+  .pull-right{float: right;}
+  .pull-right dt-buttons a {float: right; background-color: DodgerBlue;}   
+  h2 {margin-top: 52px;}
+  h3 {margin-top: 22px; margin-bottom: 22px;}
+  .nav-tabs {margin-top: 22px; margin-bottom: 22px;}
+</style>
+
+<br>
+
+
+## Context {#top}
+
+We are reviewing the modeling parameters for stacks/release points in the **2014 Inventory**. When cleared for launch they will be submitted for modeling to generate statewide pollution estimates and packaged as _MNRISKS 2014_.
+
+
+## The data
+
+The data below was retrieved from CEDR by joining 4 tables _(filtered to the 2014 inventory year)_:
+
+- `INV_SOURCES` 
+- `INV_RELEASE_POINTS`
+- `INV_RELEASE_POINT_PROCESSES`
+- `INV_PROCESS_EMISSIONS`
+
+
+
+## Shutdown stacks and facilities
+
+A handful of stacks were listed as shutdown but are missing end dates. 
+
+> Should these stacks be included?
+
+
+```{r}
+shutdown <- read_csv("2014 - Shutdown release points with emissions.csv")[ , 1:15]
+
+datatable(shutdown, rownames = F, extensions = 'Buttons', options = dt_options)
+
+```
+
+
+## No release points
+
+Facilities with no release points for 2014.
+
+> Should these facilities be included?
+
+
+```{r,}
+no_stack <- read_csv("no_stacks.csv")[ , -c(3:4,6,16:17)]
+
+datatable(no_stack, rownames = F, extensions = 'Buttons', options = dt_options)
+
+```
+
+
+## TEMPO units
+
+Some stacks seem to have been assigned incorrect units for modeling parameters. Many facilities have flow rates in both ACFM and ACFS. A 10 fold increase in flow rate corresponds to 1/6th the final modeled concentration.
+
+![](http://rocketfarminteractive.com/assets/img/chicken.png){style="float: right; margin-right: 210px; margin-top: 40px; max-width: 16%"}
+
+> Multiple Flow rate units: `ACFM` and `ACFS`
+>
+> Tiny diameters: Default for many imitation stacks set to `0.1 FT` (less than 4")
+
+
+Flow rates for *Dura Supreme Inc*
+
+> Most flow rates in `ACFM`
+>
+> Imitation stacks assigned `ACFS` units (60X the air flow) and 30X smaller diameters.
+>
+> This results in an exit velocity 1,800X faster, and is moving faster than shooting bullets and __flying chickens__.
+
+
+```{r,}
+dura <- read_csv("dura_flow.csv")[ , -c(3,4,16,17,24:26)]
+
+datatable(dura, rownames = F, extensions = 'Buttons', options = dt_options)
+
+```
+
+
+## Reasonable input range {.tabset .tabset-fade}
+
+Some stacks were assigned modeling parameters beyond reason. These may have been input through e-services or assigned incorrect units. 
+
+
+### Reasonable input range
+```{r,}
+inp_range <- read_csv("acceptable_input_range.csv")
+
+kable(inp_range)
+```
+
+
+
+### Diameter
+
+Stacks with large diameters over 15 meters and with small diameters < 0.1 Meter and a flow rate > 1 cubic Meter per second.
+
+```{r,}
+bad <- read_csv("bad_values.csv")[ , -c(3,6,16,17,27:35)]
+
+bad_diam <- filter(bad, (diameter_m < 0.1 & flow_rate_m3_s > 1) | diameter_m > 15) %>% arrange(diameter_m)
+
+datatable(bad_diam, rownames = F, extensions = 'Buttons', options = dt_options)
+
+```
+
+
+### Temp
+
+> **Refrigerated emissions?**
+
+
+Temperature for Imitation SCC `xxxxxxxx` is 45F.
+
+
+```{r,}
+bad_temp <- filter(bad, temp_k < 283 | temp_k > 1200) %>% arrange(temp_k)
+
+datatable(bad_temp, rownames = F, extensions = 'Buttons', options = dt_options)
+
+```
+
+
+> **Funny EPA joke?**
+
+Autobody temperatures are all assigned human body temperature of `98.6F`. 
+
+
+```{r,}
+body_temp <- read_csv("body_temp.csv")[ , -c(3,4,6:7,16:17)] %>% mutate()
+
+datatable(body_temp, rownames = F, extensions = 'Buttons', options = dt_options)
+
+```
+
+
+### Height
+
+Stacks < 1 meter tall or > 100 meters.
+
+```{r,}
+
+bad_ht <- filter(bad, height_m < 1 | height_m > 100) %>% arrange(-height_m)
+
+datatable(bad_ht, rownames = F, extensions = 'Buttons', options = dt_options)
+
+```
+
+
+### Exit velocity
+
+
+> Stacks with ZERO exit velocity.
+
+
+Stacks with an exit velocity < 0.001 or greater than 100 m/s.
+
+```{r,}
+bad_vel<- filter(bad, velocity_m_s < 0.001 | velocity_m_s > 100) %>% arrange(velocity_m_s)
+
+datatable(bad_vel, rownames = F, extensions = 'Buttons', options = dt_options)
+
+```
+
+
+
+## Missing values {.tabset .tabset-fade}
+
+Some stacks are missing all or several model parameters. 
+
+> Should stacks with missing parameters be modeled?
+>
+> What is different about the stacks without parameters?
+
+
+### All parameters missing
+```{r,}
+missing <- read_csv("missing_values.csv")[ , -c(3,16,17,25)] %>%
+           filter(!is.na(release_point_id))
+
+missing <- missing %>% 
+             rowwise() %>% 
+             mutate(count_miss = sum(is.na(c(height, exit_temp, diameter, exit_flow_rate))))
+
+
+all_missing <- filter(missing, count_miss > 3)
+
+missing <- filter(missing, count_miss < 4)
+
+datatable(all_missing, rownames = F, extensions = 'Buttons', options = dt_options)
+```
+
+
+
+### Height 
+
+> _Not including stacks with all parameters missing._
+
+```{r,}
+missing %>% 
+  filter(is.na(height)) %>%
+  datatable(rownames = F, extensions = 'Buttons', options = dt_options)
+```
+
+
+### Flow rate
+```{r,}
+missing %>% 
+  filter(is.na(exit_flow_rate)) %>%
+  datatable(rownames = F, extensions = 'Buttons', options = dt_options)
+```
+
+
+
+### Diameter
+```{r,}
+missing %>% 
+  filter(is.na(diameter)) %>%
+  datatable(rownames = F, extensions = 'Buttons', options = dt_options)
+```
+
+
+### Temp 
+```{r,}
+missing %>% 
+  filter(is.na(exit_temp)) %>%
+  datatable(rownames = F, extensions = 'Buttons', options = dt_options)
+```
+
+
+
+
+
+## [Return to top](#top)
+
+<br>
